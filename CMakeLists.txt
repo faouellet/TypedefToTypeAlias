@@ -31,7 +31,7 @@ if (BUILD_TYPEDEF_TO_USING)
             
         if (HAD_ERROR)
             string(REPLACE ";" " " CONFIG_COMMAND_STR "${CONFIG_COMMAND}")
-            message(STATUS "${CONFIG_COMMAND_STR}")
+            #message(STATUS "${CONFIG_COMMAND_STR}")
             message(FATAL_ERROR "llvm-config failed with status ${HAD_ERROR}")
         endif()
                 
@@ -44,7 +44,7 @@ if (BUILD_TYPEDEF_TO_USING)
         set(${VARNAME} ${CONFIG_OUTPUT} PARENT_SCOPE)
                 
         # Optionally output the configured value
-        message(STATUS "llvm_config(${VARNAME})=>${CONFIG_OUTPUT}")
+        #message(STATUS "llvm_config(${VARNAME})=>${CONFIG_OUTPUT}")
                 
         # cleanup
         unset(CONFIG_COMMAND)
