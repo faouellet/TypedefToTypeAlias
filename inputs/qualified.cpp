@@ -1,0 +1,12 @@
+typedef volatile int MyVolatileInt;
+// using MyVolatileInt = volatile int;
+typedef const int MyConstInt;
+// using MyConstInt = const int;
+typedef int * MyIntPtr;
+// using MyIntPtr = int *;
+typedef const int * MyConstIntPtr;
+// using MyConstIntPtr = const int *;
+typedef int *const MyIntConstPtr;
+// using MyIntConstPtr = int *const;
+typedef const int* const MyConstIntConstPtr;
+// using MyConstIntConstPtr = const int *const;
