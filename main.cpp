@@ -1,14 +1,5 @@
-//------------------------------------------------------------------------------
-// AST matching sample. Demonstrates:
-//
-// * How to write a simple source tool using libTooling.
-// * How to use AST matchers to find interesting AST nodes.
-// * How to use the Rewriter API to rewrite the source code.
-//
-// Eli Bendersky (eliben@gmail.com)
-// This code is in the public domain
-//------------------------------------------------------------------------------
 #include <string>
+#include <sstream>
 
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
@@ -26,21 +17,21 @@ using namespace clang::ast_matchers;
 using namespace clang::driver;
 using namespace clang::tooling;
 
-static llvm::cl::OptionCategory MatcherSampleCategory("Matcher Sample");
+static llvm::cl::OptionCategory TypedefMatcherCategory("Typedef Matcher");
 
-class IfStmtHandler : public MatchFinder::MatchCallback {
+class TypedefDeclHandler : public MatchFinder::MatchCallback {
 public:
-  IfStmtHandler(Rewriter &Rewrite) : Rewrite(Rewrite) {}
+  TypedefDeclHandler(Rewriter &Rewrite) : Rewrite(Rewrite) {}
 
   virtual void run(const MatchFinder::MatchResult &Result) {
-    // The matched 'if' statement was bound to 'ifStmt'.
-    if (const IfStmt *IfS = Result.Nodes.getNodeAs<clang::IfStmt>("ifStmt")) {
-      const Stmt *Then = IfS->getThen();
-      Rewrite.InsertText(Then->getLocStart(), "// the 'if' part\n", true, true);
-
-      if (const Stmt *Else = IfS->getElse()) {
-        Rewrite.InsertText(Else->getLocStart(), "// the 'else' part\n", true,
-                           true);
+    if (const TypedefDecl *TDecl =
+            Result.Nodes.getNodeAs<clang::TypedefDecl>("typedefDecl")) {
+      const TypeSourceInfo *TSI = TDecl->getTypeSourceInfo();
+      if (TDecl->getLocation().isValid() && (TSI != nullptr)) {
+        std::stringstream SS;
+        SS << "using " << TDecl->getNameAsString() << " = "
+           << TSI->getType().getAsString();
+        Rewrite.ReplaceText(TDecl->getSourceRange(), SS.str());
       }
     }
   }
@@ -49,61 +40,21 @@ private:
   Rewriter &Rewrite;
 };
 
-class IncrementForLoopHandler : public MatchFinder::MatchCallback {
-public:
-  IncrementForLoopHandler(Rewriter &Rewrite) : Rewrite(Rewrite) {}
-
-  virtual void run(const MatchFinder::MatchResult &Result) {
-    const VarDecl *IncVar = Result.Nodes.getNodeAs<VarDecl>("incVarName");
-    Rewrite.InsertText(IncVar->getLocStart(), "/* increment */", true, true);
-  }
-
-private:
-  Rewriter &Rewrite;
-};
-
-// Implementation of the ASTConsumer interface for reading an AST produced
-// by the Clang parser. It registers a couple of matchers and runs them on
-// the AST.
 class MyASTConsumer : public ASTConsumer {
 public:
-  MyASTConsumer(Rewriter &R) : HandlerForIf(R), HandlerForFor(R) {
-    // Add a simple matcher for finding 'if' statements.
-    Matcher.addMatcher(ifStmt().bind("ifStmt"), &HandlerForIf);
-
-    // Add a complex matcher for finding 'for' loops with an initializer set
-    // to 0, < comparison in the codition and an increment. For example:
-    //
-    //  for (int i = 0; i < N; ++i)
-    Matcher.addMatcher(
-        forStmt(hasLoopInit(declStmt(hasSingleDecl(
-                    varDecl(hasInitializer(integerLiteral(equals(0))))
-                        .bind("initVarName")))),
-                hasIncrement(unaryOperator(
-                    hasOperatorName("++"),
-                    hasUnaryOperand(declRefExpr(to(
-                        varDecl(hasType(isInteger())).bind("incVarName")))))),
-                hasCondition(binaryOperator(
-                    hasOperatorName("<"),
-                    hasLHS(ignoringParenImpCasts(declRefExpr(to(
-                        varDecl(hasType(isInteger())).bind("condVarName"))))),
-                    hasRHS(expr(hasType(isInteger()))))))
-            .bind("forLoop"),
-        &HandlerForFor);
+  MyASTConsumer(Rewriter &R) : HandlerForTypedef(R) {
+    Matcher.addMatcher(typedefDecl().bind("typedefDecl"), &HandlerForTypedef);
   }
 
   void HandleTranslationUnit(ASTContext &Context) override {
-    // Run the matchers when we have the whole TU parsed.
     Matcher.matchAST(Context);
   }
 
 private:
-  IfStmtHandler HandlerForIf;
-  IncrementForLoopHandler HandlerForFor;
+  TypedefDeclHandler HandlerForTypedef;
   MatchFinder Matcher;
 };
 
-// For each source file provided to the tool, a new FrontendAction is created.
 class MyFrontendAction : public ASTFrontendAction {
 public:
   MyFrontendAction() {}
@@ -113,7 +64,7 @@ public:
   }
 
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
-                                                 StringRef file) override {
+                                                 StringRef) override {
     TheRewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts());
     return llvm::make_unique<MyASTConsumer>(TheRewriter);
   }
@@ -123,8 +74,8 @@ private:
 };
 
 int main(int argc, const char **argv) {
-  CommonOptionsParser op(argc, argv, MatcherSampleCategory);
-  ClangTool Tool(op.getCompilations(), op.getSourcePathList());
+  CommonOptionsParser op(argc, argv, TypedefMatcherCategory);
+  ClangTool tool(op.getCompilations(), op.getSourcePathList());
 
-  return Tool.run(newFrontendActionFactory<MyFrontendAction>().get());
+  return tool.run(newFrontendActionFactory<MyFrontendAction>().get());
 }
