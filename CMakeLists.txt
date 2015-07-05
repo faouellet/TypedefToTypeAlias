@@ -2,12 +2,11 @@
 
 cmake_minimum_required (VERSION 3.0)
 
-project(interface_class_printer)
-project(TypedefToUsing)
+project(TypedefToTypeAlias)
 
-option(BUILD_TYPEDEF_TO_USING "Build the tool that converts a typedef to a using statement." ON)
-mark_as_advanced(BUILD_TYPEDEF_TO_USING)
-if (BUILD_TYPEDEF_TO_USING)
+option(BUILD_TYPEDEF_TO_TYPE_ALIAS "Build the tool that converts a typedef to a type alias." ON)
+mark_as_advanced(BUILD_TYPEDEF_TO_TYPE_ALIAS)
+if (BUILD_TYPEDEF_TO_TYPE_ALIAS)
           
     # Find LLVM Config binary
     find_program(LLVM_CONFIG_PATH "llvm-config")    
@@ -66,13 +65,13 @@ if (BUILD_TYPEDEF_TO_USING)
     include_directories("${LLVM_SRC_ROOT}/tools/clang/include")
     link_directories(${LLVM_LIBDIR})
          
-    add_executable(ttu
+    add_executable(ttta
         main.cpp
         )
      
     # Libraries migh only be found when building with:
     # LD_LIBRARY_PATH=$(llvm-config --libdir):$LD_LIBRARY_PATH make
-    target_link_libraries(ttu
+    target_link_libraries(ttta
         ${LLVM_LDFLAGS}
         #        -lLLVM-3.5
         -lclangTooling
@@ -95,5 +94,8 @@ if (BUILD_TYPEDEF_TO_USING)
         -ldl
         -ltinfo
    )
+
+file(COPY ${PROJECT_SOURCE_DIR}/inputs DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY ${PROJECT_SOURCE_DIR}/test.py DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
