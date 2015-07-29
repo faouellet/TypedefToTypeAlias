@@ -2,11 +2,11 @@
 
 cmake_minimum_required (VERSION 3.0)
 
-project(TypedefToTypeAlias)
+project(clang-tools)
 
-option(BUILD_TYPEDEF_TO_TYPE_ALIAS "Build the tool that converts a typedef to a type alias." ON)
-mark_as_advanced(BUILD_TYPEDEF_TO_TYPE_ALIAS)
-if (BUILD_TYPEDEF_TO_TYPE_ALIAS)
+option(BUILD_CLANG_TOOLS "Build the clang tools" ON)
+mark_as_advanced(BUILD_CLANG_TOOLS)
+if (BUILD_CLANG_TOOLS)
           
     # Find LLVM Config binary
     find_program(LLVM_CONFIG_PATH "llvm-config")    
@@ -65,13 +65,40 @@ if (BUILD_TYPEDEF_TO_TYPE_ALIAS)
     include_directories("${LLVM_SRC_ROOT}/tools/clang/include")
     link_directories(${LLVM_LIBDIR})
          
-    add_executable(ttta
-        main.cpp
+    add_executable(dtg
+        DoxygenTemplateGenerator/main.cpp
         )
      
+    add_executable(ttta
+        TypedefToTypeAlias/main.cpp
+        )
+
     # Libraries migh only be found when building with:
     # LD_LIBRARY_PATH=$(llvm-config --libdir):$LD_LIBRARY_PATH make
-    target_link_libraries(ttta
+    target_link_libraries(dtg
+        ${LLVM_LDFLAGS}
+        #        -lLLVM-3.5
+        -lclangTooling
+        -lclangFrontendTool
+        -lclangFrontend
+        -lclangDriver
+        -lclangSerialization
+        -lclangParse
+        -lclangSema
+        -lclangAnalysis
+        -lclangEdit
+        -lclangAST
+        -lclangLex
+        -lclangBasic
+        -lclangASTMatchers
+        -lclangRewrite
+        -lclangRewriteFrontend
+        ${LLVM_LIBS}
+        -pthread
+        -ldl
+        -ltinfo
+   )
+   target_link_libraries(ttta
         ${LLVM_LDFLAGS}
         #        -lLLVM-3.5
         -lclangTooling
@@ -95,7 +122,7 @@ if (BUILD_TYPEDEF_TO_TYPE_ALIAS)
         -ltinfo
    )
 
-file(COPY ${PROJECT_SOURCE_DIR}/inputs DESTINATION ${CMAKE_BINARY_DIR})
-file(COPY ${PROJECT_SOURCE_DIR}/test.py DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY ${PROJECT_SOURCE_DIR}/TypedefToTypeAlias/inputs DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY ${PROJECT_SOURCE_DIR}/TypedefToTypeAlias/test.py DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
