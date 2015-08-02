@@ -17,27 +17,39 @@ using namespace clang::ast_matchers;
 using namespace clang::driver;
 using namespace clang::tooling;
 
-static llvm::cl::OptionCategory EnumDeclMatcherCategory("Enum Decl Matcher");
-static llvm::cl::OptionCategory FuncDeclMatcherCategory("Func Decl Matcher");
+static llvm::cl::OptionCategory DTGMatcherCategory("DTG Matcher");
 
-class EnumDeclHandler : public MatchFinder::MatchCallback {
+class TagHandler : public MatchFinder::MatchCallback {
 public:
-  EnumDeclHandler(Rewriter &Rewrite) : TheRewriter(Rewrite) {}
+  TagHandler(Rewriter &Rewrite) : TheRewriter(Rewrite) {}
 
   virtual void run(const MatchFinder::MatchResult &Result) {
     // We have a match
-    if (const EnumDecl *EDecl =
-            Result.Nodes.getNodeAs<clang::EnumDecl>("enumDecl")) {
-      // Only considering enum which are not forward declaration
-      if (EDecl->isComplete()) {
+    if (const TagDecl *TDecl =
+            Result.Nodes.getNodeAs<clang::TagDecl>("tagDecl")) {
+      // Only considering tag which are not forward declaration
+      if (TDecl->isCompleteDefinition()) {
         // Formatting the doxygen comment
         std::stringstream SStream;
         SStream << "/**\n";
-        SStream << "* \\enum " << EDecl->getNameAsString() << "\n";
-        SStream << "* \\brief\tENUM DESCRIPTION\n";
+
+        if (TDecl->isClass())
+          SStream << "* \\class ";
+        else if (TDecl->isEnum())
+          SStream << "* \\enum ";
+        else if (TDecl->isStruct())
+          SStream << "* \\struct ";
+        else if (TDecl->isUnion())
+          SStream << "* \\union ";
+        else
+          // No comments generated for interface
+          return;
+
+        SStream << TDecl->getNameAsString() << "\n";
+        SStream << "* \\brief\tDESCRIPTION\n";
         SStream << "*/\n";
 
-        SourceLocation SrcLoc = EDecl->getSourceRange().getBegin();
+        SourceLocation SrcLoc = TDecl->getSourceRange().getBegin();
         TheRewriter.InsertText(SrcLoc, SStream.str(), /*InsertAfter=*/true,
                                /*IndentNewLines*/ true);
       }
@@ -48,9 +60,9 @@ private:
   Rewriter &TheRewriter;
 };
 
-class FuncDeclHandler : public MatchFinder::MatchCallback {
+class FuncHandler : public MatchFinder::MatchCallback {
 public:
-  FuncDeclHandler(Rewriter &Rewrite) : TheRewriter(Rewrite) {}
+  FuncHandler(Rewriter &Rewrite) : TheRewriter(Rewrite) {}
 
   virtual void run(const MatchFinder::MatchResult &Result) {
     // We have a match
@@ -81,9 +93,10 @@ private:
 
 class MyASTConsumer : public ASTConsumer {
 public:
-  MyASTConsumer(Rewriter &R) : HandlerForEnumDecl(R), HandlerForFuncDecl(R) {
-    Matcher.addMatcher(enumDecl().bind("enumDecl"), &HandlerForEnumDecl);
-    Matcher.addMatcher(functionDecl().bind("funcDecl"), &HandlerForFuncDecl);
+  MyASTConsumer(Rewriter &R) : HandlerForTag(R), HandlerForFunc(R) {
+    Matcher.addMatcher(recordDecl().bind("tagDecl"), &HandlerForTag);
+    Matcher.addMatcher(enumDecl().bind("tagDecl"), &HandlerForTag);
+    Matcher.addMatcher(functionDecl().bind("funcDecl"), &HandlerForFunc);
   }
 
   void HandleTranslationUnit(ASTContext &Context) override {
@@ -91,8 +104,8 @@ public:
   }
 
 private:
-  EnumDeclHandler HandlerForEnumDecl;
-  FuncDeclHandler HandlerForFuncDecl;
+  TagHandler HandlerForTag;
+  FuncHandler HandlerForFunc;
   MatchFinder Matcher;
 };
 
@@ -115,7 +128,7 @@ private:
 };
 
 int main(int argc, const char **argv) {
-  CommonOptionsParser op(argc, argv, FuncDeclMatcherCategory);
+  CommonOptionsParser op(argc, argv, DTGMatcherCategory);
   ClangTool tool(op.getCompilations(), op.getSourcePathList());
 
   return tool.run(newFrontendActionFactory<MyFrontendAction>().get());
