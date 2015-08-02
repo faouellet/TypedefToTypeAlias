@@ -17,7 +17,36 @@ using namespace clang::ast_matchers;
 using namespace clang::driver;
 using namespace clang::tooling;
 
+static llvm::cl::OptionCategory EnumDeclMatcherCategory("Enum Decl Matcher");
 static llvm::cl::OptionCategory FuncDeclMatcherCategory("Func Decl Matcher");
+
+class EnumDeclHandler : public MatchFinder::MatchCallback {
+public:
+  EnumDeclHandler(Rewriter &Rewrite) : TheRewriter(Rewrite) {}
+
+  virtual void run(const MatchFinder::MatchResult &Result) {
+    // We have a match
+    if (const EnumDecl *EDecl =
+            Result.Nodes.getNodeAs<clang::EnumDecl>("enumDecl")) {
+      // Only considering enum which are not forward declaration
+      if (EDecl->isComplete()) {
+        // Formatting the doxygen comment
+        std::stringstream SStream;
+        SStream << "/**\n";
+        SStream << "* \\enum " << EDecl->getNameAsString() << "\n";
+        SStream << "* \\brief\tENUM DESCRIPTION\n";
+        SStream << "*/\n";
+
+        SourceLocation SrcLoc = EDecl->getSourceRange().getBegin();
+        TheRewriter.InsertText(SrcLoc, SStream.str(), /*InsertAfter=*/true,
+                               /*IndentNewLines*/ true);
+      }
+    }
+  }
+
+private:
+  Rewriter &TheRewriter;
+};
 
 class FuncDeclHandler : public MatchFinder::MatchCallback {
 public:
@@ -52,8 +81,9 @@ private:
 
 class MyASTConsumer : public ASTConsumer {
 public:
-  MyASTConsumer(Rewriter &R) : HandlerForFuncDecl(R) {
-    Matcher.addMatcher(typedefDecl().bind("funcDecl"), &HandlerForFuncDecl);
+  MyASTConsumer(Rewriter &R) : HandlerForEnumDecl(R), HandlerForFuncDecl(R) {
+    Matcher.addMatcher(enumDecl().bind("enumDecl"), &HandlerForEnumDecl);
+    Matcher.addMatcher(functionDecl().bind("funcDecl"), &HandlerForFuncDecl);
   }
 
   void HandleTranslationUnit(ASTContext &Context) override {
@@ -61,6 +91,7 @@ public:
   }
 
 private:
+  EnumDeclHandler HandlerForEnumDecl;
   FuncDeclHandler HandlerForFuncDecl;
   MatchFinder Matcher;
 };
