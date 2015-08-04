@@ -2,3 +2,5 @@ DTG:
 - Testing
 - Documentation generation for member variables
 - README
+- Vim integration
+- VS integration
