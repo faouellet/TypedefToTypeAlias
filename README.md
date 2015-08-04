@@ -1,4 +1,4 @@
-DoxygenTemplateGenerator
+Clang-Tools
 ===================
 
 Introduction
