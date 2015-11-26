@@ -5,7 +5,7 @@ Introduction
 -------------
 clang-tools are mostly a fun and simple way of introducing me to writing Clang-based tools. Most of the implementation is based on [AST matchers and Clang refactoring tools](http://eli.thegreenplace.net/2014/07/29/ast-matchers-and-clang-refactoring-tools).
 
-```
+
 Compiling
 -------------
 Requirements:
